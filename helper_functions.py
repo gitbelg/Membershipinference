@@ -1,6 +1,7 @@
 import pickle
 import torch
 from os.path import isfile
+from os import remove
 import torch.nn as nn
 from torch.utils.data import dataloader
 from torch import optim, nn
@@ -39,7 +40,7 @@ def train_loop (num_epochs:int, model:nn.Module, dataloader:dataloader, optimize
         print(f'Epoch {epoch + 1}/{num_epochs}, Loss: {average_loss:.4f}')
 
 
-def train_or_load(model:nn.Module, train_loader, optimizer, criterion, epochs:int, save_path:str=None):
+def train_or_load(model:nn.Module, train_loader:dataloader, optimizer:optim, criterion:nn, epochs:int, save_path:str=None):
     if save_path is not None and isfile (save_path):
         print (f'Attack model state dictionary already available, loading into input model from {save_path}!')
         model.load_state_dict(torch.load(save_path))
@@ -61,10 +62,12 @@ def train_or_load(model:nn.Module, train_loader, optimizer, criterion, epochs:in
                     print (labels[0])
                     print(f"Batch {idx} with Loss: {loss.item()}")
         # Save trained model if savepath not None
-        if save_path is not None and isfile (save_path):
+        if save_path is not None:
             print (f'Finished Training\n Saving model state dictionary to path {save_path}!')
-            torch.save(model.state_dict(), save_path)
-    
+            try: 
+                torch.save(model.state_dict(), save_path)
+            except:
+                print ("Saving failed due to exception!")
                 
                 
 ############################################ FOR JUPYTER NOTEBOOOK
@@ -74,7 +77,7 @@ def create_post_train_loader (non_memb_loader:dataloader, memb_loader:dataloader
         print (f"Attack dataset was already established previosly, loading dataset from {save_path}.")
         # Load already established dset
         with open(save_path, "rb") as att_dset_f:
-            attack_dtloader = dataloader(pickle.load(att_dset_f))
+            dataset_attack = pickle.load(att_dset_f)
     else:
         shadow_model.eval()
         dataset_attack = []
@@ -100,12 +103,16 @@ def create_post_train_loader (non_memb_loader:dataloader, memb_loader:dataloader
                 top_values = torch.topk(logits, k=3).values
                 top_values, _ = torch.sort(top_values, dim=1, descending=True)
                 dataset_attack.append([top_values,1])
-        attack_dtloader = torch.utils.data.DataLoader(dataset_attack, batch_size=batch_size, shuffle=True, num_workers=multi_n)
-        if save_path is not None and isfile(save_path):
+        if save_path is not None:
             # Save dset
-            with open (save_path, "w") as att_dset_f:
+            with open (save_path, "wb") as att_dset_f:
                 print (f"Saving attack model training dataset at {save_path}!")
-                pickle.dump(dataset_attack,att_dset_f)
+                try: 
+                    pickle.dump(dataset_attack, att_dset_f)
+                except:
+                    print ("Saving failed, due to exception!")
+    attack_dtloader = torch.utils.data.DataLoader(dataset_attack, batch_size=batch_size, shuffle=True, num_workers=multi_n)
+
     return attack_dtloader
 
 # Use this function to create a dataset of the target model posteriors
@@ -114,7 +121,7 @@ def create_eval_post_loader (target_model:nn.Module, eval_dataloader:dataloader,
     with torch.no_grad():
         for images,_, member in eval_dataloader: #need only one
             # Move images and labels to the appropriate device
-            images, labels = images.to(device), labels.to(device)
+            images = images.to(device)
             # Forward pass
             logits = target_model(images)
             #take the 3 biggest logist
