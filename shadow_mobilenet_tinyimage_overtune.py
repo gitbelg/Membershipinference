@@ -25,11 +25,14 @@ TRAIN_NEW_MODEL = False
 # Change the DATA_PATH to your local pickle file path
 DATA_PATH = 'pickle/tinyimagenet/mobilenetv2/shadow.p'
 # Model state dictionary file
-OLD_MODEL_PATH = 'mobilenet_shadow_tinyimage_overtrained.pth'
-NEW_MODEL_PATH = 'mobilenet_shadow_tinyimage_overtrained.pth'
+# Loading path
+OLD_MODEL_PATH = 'shadow_models/mobilenet_shadow_tinyimage_overtrained.pth'
+# Saving path
+NEW_MODEL_PATH = 'shadow_models/mobilenet_shadow_tinyimage_overtrained.pth'
 # Parameter
 NUM_EPOCHS = 5
 TRAIN_PERC = 0.5
+LEARNING_RATE = 0.001
 DEVICE=torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # sets to gpu if you have one
 
 model =  models.mobilenet_v2(weights=None,num_classes=200).to(DEVICE)
@@ -44,8 +47,8 @@ testloader =  torch.utils.data.DataLoader(val_data, batch_size=1, shuffle=True, 
 
 # Define loss function and optimizer
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001) #choose adams
+optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE) #choose adams
 
-model = train_loop(NUM_EPOCHS, model, dataloader, optimizer, criterion, DEVICE)    
+train_loop(NUM_EPOCHS, model, dataloader, optimizer, criterion, DEVICE)    
 torch.save(model.state_dict(), NEW_MODEL_PATH)
 print('Finished Training')

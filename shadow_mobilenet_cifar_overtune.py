@@ -25,11 +25,14 @@ TRAIN_NEW_MODEL = False
 # Change the DATA_PATH to your local pickle file path
 DATA_PATH = 'pickle/cifar10/mobilenetv2/shadow.p'
 # Model state dictionary file
-OLD_MODEL_PATH = 'mobilenet_shadow_cifar_overtrained.pth'
-NEW_MODEL_PATH = 'mobilenet_shadow_cifar_overtrained.pth'
+# Loading path
+OLD_MODEL_PATH = 'shadown_models/mobilenet_shadow_cifar_overtrained.pth'
+# Saving path
+NEW_MODEL_PATH = 'shadow_models/mobilenet_shadow_cifar_overtrained.pth'
 # Parameter
 NUM_EPOCHS = 3
 TRAIN_PERC = 0.5
+LEARNING_RATE = 0.00001
 DEVICE=torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # sets to gpu if you have one
 
 # load old stateditc
@@ -49,9 +52,9 @@ testloader =  DataLoader(val_data, batch_size=1, shuffle=True, num_workers=MULTI
 
 # Define loss function and optimizer
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.00001) #choose adams
+optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE) #choose adams
 # Training loop
-model = train_loop(NUM_EPOCHS, model, dataloader, optimizer, criterion, DEVICE)
+train_loop(NUM_EPOCHS, model, dataloader, optimizer, criterion, DEVICE)
 
 
         
