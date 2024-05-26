@@ -17,64 +17,36 @@ import torchvision
 import torchvision.transforms as transforms
 from torchvision.models import resnet34
 
-device = "cpu" # set to gpu if you have one
-model = torch.load("resnet_tinyimage/resnet34_shadow_tinyimage_overtrained.pth",map_location=torch.device('cpu'))
-model2 = resnet34(pretrained = False,num_classes = 200).to(device)
-model2.load_state_dict(model, strict=False)
-model  = model2
-DATA_PATH = 'resnet_tinyimage/shadow_tinyimage_resnet.p'
-# Change the DATA_PATH to your local pickle file path
+from helper_functions import train_loop
 
-device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# Turn up number, if computer supports this 
+MULTI_THREATING_PROCESS_N = 0
+TRAIN_NEW_MODEL = True
+# Change the DATA_PATH to your local pickle file path
+DATA_PATH = 'pickle/tinyimagenet/resnet34/shadow.p'
+# Model state dictionary file
+OLD_MODEL_PATH = 'resnet34_shadow_tinyimage_overtrained.pth'
+NEW_MODEL_PATH = 'resnet34_shadow_tinyimage_overtrained.pth'
+# Parameter
+NUM_EPOCHS = 10
+TRAIN_PERC = 0.5
+DEVICE=torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # sets to gpu if you have one
+
+model = resnet34(weights=None,num_classes=200).to(DEVICE)
+if not TRAIN_NEW_MODEL: model.load_state_dict(torch.load(OLD_MODEL_PATH,map_location=DEVICE), strict=False)
 
 with open(DATA_PATH, "rb") as f:
     dataset = pickle.load(f)
-
-
 #splitting
 #only use train set here
-train_data, val_data = train_test_split(dataset, test_size=(1-0.5),shuffle=False)
-
-dataloader = torch.utils.data.DataLoader(
-    train_data, batch_size=128 , shuffle=False, num_workers=4)
-testloader =  torch.utils.data.DataLoader(val_data, batch_size=1,
-                                          shuffle=True, num_workers=2)
-
-for batch_idx, (img, label) in enumerate(dataloader):
-    img = img.to(device)
-model.train()
+train_data, val_data = train_test_split(dataset, test_size=(1-TRAIN_PERC),shuffle=False)
+dataloader = torch.utils.data.DataLoader(train_data, batch_size=128, shuffle=False, num_workers=MULTI_THREATING_PROCESS_N)
+testloader =  torch.utils.data.DataLoader(val_data, batch_size=1, shuffle=True, num_workers=MULTI_THREATING_PROCESS_N)
 
 # Define loss function and optimizer
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001) #choose adams
-
-# Training loop
-num_epochs = 10
-for epoch in range(num_epochs):
-    running_loss = 0.0
-    total_batches = 0
-
-    for i, data in enumerate(dataloader, 0):
-        inputs, labels = data[0].to(device), data[1].to(device)
-
-        optimizer.zero_grad()
-
-        # Forward pass
-        outputs = model(inputs)
-        loss = criterion(outputs, labels)
-
-        # Backward pass and optimization
-        loss.backward()
-        optimizer.step()
-
-        running_loss += loss.item()
-        total_batches += 1
-
-    # Calculate and print the average loss per epoch
-    average_loss = running_loss / total_batches
-    print(f'Epoch {epoch + 1}/{num_epochs}, Loss: {average_loss:.4f}')
-
-    
+model = train_loop(NUM_EPOCHS, model, dataloader, optimizer, criterion, DEVICE)    
         
-torch.save(model.state_dict(), 'resnet_tinyimage/resnet34_shadow_tinyimage_overtrained.pth')
+torch.save(model.state_dict(), NEW_MODEL_PATH)
 print('Finished Training')
