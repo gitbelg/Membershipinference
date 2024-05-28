@@ -10,3 +10,9 @@ Use overtrained shadow models
 - resnet-tiny: 0.99
 - mobilnet-cifar: 0.71
 - mobilnet-tiny: 0.56
+
+# Accuracies from Simon
+- 0.72
+- 0.99
+- 0.7
+- 0.6
