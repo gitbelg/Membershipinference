@@ -40,7 +40,7 @@ def train_loop (num_epochs:int, model:nn.Module, dataloader:dataloader, optimize
         print(f'Epoch {epoch + 1}/{num_epochs}, Loss: {average_loss:.4f}')
 
 
-def train_or_load(model:nn.Module, train_loader:dataloader, optimizer:optim, criterion:nn, epochs:int, save_path:str=None):
+def train_or_load(model:nn.Module, train_loader:dataloader, optimizer:optim, criterion:nn, epochs:int, save_path:str=None, device:str="cpu"):
     if save_path is not None and isfile (save_path):
         print (f'Attack model state dictionary already available, loading into input model from {save_path}!')
         model.load_state_dict(torch.load(save_path))
@@ -49,18 +49,18 @@ def train_or_load(model:nn.Module, train_loader:dataloader, optimizer:optim, cri
         for epoch in range(epochs):
             print (f'Epoch: {epoch+1}')
             for idx, (inputs, labels) in enumerate(train_loader, 0):
-                inputs = inputs.float()  # Ensures input tensors are floats
-                labels = labels.float().view(-1, 1)  # Ensures labels are floats and reshaped correctly
+                inputs = inputs.float().to(device)  # Ensures input tensors are floats
+                labels = labels.float().to(device).view(-1, 1)  # Ensures labels are floats and reshaped correctly
 
                 optimizer.zero_grad()
                 outputs = model(inputs.squeeze(dim=1))
                 loss = criterion(outputs, labels)
                 loss.backward()
                 optimizer.step()
-                if idx % (50*epochs) == 0:
-                    print (inputs[0])
-                    print (labels[0])
-                    print(f"Batch {idx} with Loss: {loss.item()}")
+                # if idx % (50*epochs) == 0:
+                #     print (inputs[0])
+                #     print (labels[0])
+            print(f"Loss: {loss.item()}")
         # Save trained model if savepath not None
         if save_path is not None:
             print (f'Finished Training\n Saving model state dictionary to path {save_path}!')
