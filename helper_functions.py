@@ -40,7 +40,7 @@ def train_loop (num_epochs:int, model:nn.Module, dataloader:dataloader, optimize
         print(f'Epoch {epoch + 1}/{num_epochs}, Loss: {average_loss:.4f}')
 
 
-def train_or_load(model:nn.Module, train_loader:dataloader, optimizer:optim, criterion:nn, epochs:int, save_path:str=None, device:str="cpu"):
+def train_or_load(model:nn.Module, train_loader:dataloader,test_loader:dataloader, optimizer:optim, criterion:nn, epochs:int, save_path:str=None, device:str="cpu"):
     if save_path is not None and isfile (save_path):
         print (f'Attack model state dictionary already available, loading into input model from {save_path}!')
         model.load_state_dict(torch.load(save_path))
@@ -61,6 +61,8 @@ def train_or_load(model:nn.Module, train_loader:dataloader, optimizer:optim, cri
                 #     print (inputs[0])
                 #     print (labels[0])
             print(f"Loss: {loss.item()}")
+
+            evaluate_attack_model(model,test_loader,1,"cpu")
         # Save trained model if savepath not None
         if save_path is not None:
             print (f'Finished Training\n Saving model state dictionary to path {save_path}!')
