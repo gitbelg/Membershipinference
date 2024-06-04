@@ -116,7 +116,7 @@ def create_post_train_loader (non_memb_loader:DataLoader, memb_loader:DataLoader
     return attack_dtloader
 
 # Use this function to create a dataset of the target model posteriors
-def create_eval_post_loader (target_model:nn.Module, eval_dataloader:DataLoader, multi_n:int, device)->DataLoader:
+def create_eval_post_loader (target_model:nn.Module, eval_dataloader:DataLoader, multi_n:int=1, device="cpu")->DataLoader:
     target_dataset_eval = []
     with torch.no_grad():
         for images,_, member in eval_dataloader: #need only one
