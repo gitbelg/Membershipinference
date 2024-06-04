@@ -41,7 +41,7 @@ def train_loop (num_epochs:int, model:nn.Module, dataloader:DataLoader, optimize
 
 
 
-def train_or_load(model:nn.Module, train_loader:DataLoader, optimizer:optim, criterion:nn, epochs:int, save_path:str=None, device:str="cpu"):
+def train_or_load(model:nn.Module, train_loader:DataLoader, eval_loader:DataLoader, optimizer:optim, criterion:nn, epochs:int, save_path:str=None, device:str="cpu"):
     if save_path is not None and isfile (save_path):
         print (f'Attack model state dictionary already available, loading into input model from {save_path}!')
         model.load_state_dict(torch.load(save_path))
@@ -63,7 +63,7 @@ def train_or_load(model:nn.Module, train_loader:DataLoader, optimizer:optim, cri
                     print (labels[0])
             print(f"Loss: {loss.item()}")
 
-            evaluate_attack_model(model,test_loader,1,"cpu")
+            evaluate_attack_model(model,eval_loader,1,"cpu")
         # Save trained model if savepath not None
         if save_path is not None:
             print (f'Finished Training\n Saving model state dictionary to path {save_path}!')
@@ -75,7 +75,7 @@ def train_or_load(model:nn.Module, train_loader:DataLoader, optimizer:optim, cri
                 
 ############################################ FOR JUPYTER NOTEBOOOK
 # Use this function to create a training dataset for the attack model, based on shadow training/testing datasets
-def create_post_train_loader (non_memb_loader:DataLoader, memb_loader:DataLoader, shadow_model:nn.Module, batch_size:int, multi_n:int, device, save_path:str=None)->dataloader:
+def create_post_train_loader (non_memb_loader:DataLoader, memb_loader:DataLoader, shadow_model:nn.Module, batch_size:int, multi_n:int, device, save_path:str=None)->DataLoader:
     if save_path is not None and isfile(save_path):
         print (f"Attack dataset was already established previosly, loading dataset from {save_path}.")
         # Load already established dset
