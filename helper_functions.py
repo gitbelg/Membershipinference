@@ -3,7 +3,7 @@ import torch
 from os.path import isfile
 from os import remove
 import torch.nn as nn
-from torch.utils.data import dataloader
+from torch.utils.data import DataLoader
 from torch import optim, nn
 from torch import device as d
 from enum import Enum
@@ -12,7 +12,7 @@ class DatasetClassN (Enum):
     Cifar = 10
     Tinyimage = 200
 
-def train_loop (num_epochs:int, model:nn.Module, dataloader:dataloader, optimizer:optim, criterion:nn, device:d) -> nn.Module:
+def train_loop (num_epochs:int, model:nn.Module, dataloader:DataLoader, optimizer:optim, criterion:nn, device:d) -> nn.Module:
     model.train()
     print ("Starting Training!")
     for epoch in range(num_epochs):
@@ -40,7 +40,11 @@ def train_loop (num_epochs:int, model:nn.Module, dataloader:dataloader, optimize
         print(f'Epoch {epoch + 1}/{num_epochs}, Loss: {average_loss:.4f}')
 
 
+<<<<<<< HEAD
 def train_or_load(model:nn.Module, train_loader:dataloader,test_loader:dataloader, optimizer:optim, criterion:nn, epochs:int, save_path:str=None, device:str="cpu"):
+=======
+def train_or_load(model:nn.Module, train_loader:DataLoader, optimizer:optim, criterion:nn, epochs:int, save_path:str=None, device:str="cpu"):
+>>>>>>> 08159524ef3cf3c414466916a3d7040f3d50aae9
     if save_path is not None and isfile (save_path):
         print (f'Attack model state dictionary already available, loading into input model from {save_path}!')
         model.load_state_dict(torch.load(save_path))
@@ -57,9 +61,9 @@ def train_or_load(model:nn.Module, train_loader:dataloader,test_loader:dataloade
                 loss = criterion(outputs, labels)
                 loss.backward()
                 optimizer.step()
-                # if idx % (50*epochs) == 0:
-                #     print (inputs[0])
-                #     print (labels[0])
+                if idx % (50) == 0:
+                    print (inputs[0])
+                    print (labels[0])
             print(f"Loss: {loss.item()}")
 
             evaluate_attack_model(model,test_loader,1,"cpu")
@@ -74,7 +78,7 @@ def train_or_load(model:nn.Module, train_loader:dataloader,test_loader:dataloade
                 
 ############################################ FOR JUPYTER NOTEBOOOK
 # Use this function to create a training dataset for the attack model, based on shadow training/testing datasets
-def create_post_train_loader (non_memb_loader:dataloader, memb_loader:dataloader, shadow_model:nn.Module, batch_size:int, multi_n:int, device, save_path:str=None)->dataloader:
+def create_post_train_loader (non_memb_loader:DataLoader, memb_loader:DataLoader, shadow_model:nn.Module, batch_size:int, multi_n:int, device, save_path:str=None)->dataloader:
     if save_path is not None and isfile(save_path):
         print (f"Attack dataset was already established previosly, loading dataset from {save_path}.")
         # Load already established dset
@@ -113,12 +117,12 @@ def create_post_train_loader (non_memb_loader:dataloader, memb_loader:dataloader
                     pickle.dump(dataset_attack, att_dset_f)
                 except:
                     print ("Saving failed, due to exception!")
-    attack_dtloader = torch.utils.data.DataLoader(dataset_attack, batch_size=batch_size, shuffle=True, num_workers=multi_n)
+    attack_dtloader = DataLoader(dataset_attack, batch_size=batch_size, shuffle=True, num_workers=multi_n)
 
     return attack_dtloader
 
 # Use this function to create a dataset of the target model posteriors
-def create_eval_post_loader (target_model:nn.Module, eval_dataloader:dataloader, multi_n:int, device)->dataloader:
+def create_eval_post_loader (target_model:nn.Module, eval_dataloader:DataLoader, multi_n:int, device)->DataLoader:
     target_dataset_eval = []
     with torch.no_grad():
         for images,_, member in eval_dataloader: #need only one
@@ -130,10 +134,10 @@ def create_eval_post_loader (target_model:nn.Module, eval_dataloader:dataloader,
             top_values = torch.topk(logits, k=3).values #order poseri
             sorted_tensor, _ = torch.sort(top_values, dim=1,descending=True)
             target_dataset_eval.append([sorted_tensor, member.item()])
-    target_eval_dl = torch.utils.data.DataLoader(target_dataset_eval, batch_size=1 , shuffle=False, num_workers=multi_n)
+        target_eval_dl = torch.utils.data.DataLoader(target_dataset_eval, batch_size=1 , shuffle=False, num_workers=multi_n)
     return target_eval_dl
 
-def evaluate_attack_model(model:nn.Module, post_memb_loader:dataloader):
+def evaluate_attack_model(model:nn.Module, post_memb_loader:DataLoader):
     model.eval()  # Set the model to evaluation mode
     correct = 0
     total = 0
