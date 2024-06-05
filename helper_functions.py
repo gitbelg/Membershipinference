@@ -134,6 +134,7 @@ def create_shadow_post_train_loader (non_memb_loader:DataLoader, memb_loader:Dat
     else:
         shadow_model.eval()
         dataset_attack = []
+        onehot_l = []
         # NON Members
         with torch.no_grad():
             first_sample = True
@@ -257,11 +258,10 @@ def evaluate_attack_model(model: nn.Module, post_memb_loader: DataLoader, device
             outputs = model(sorted_logits.squeeze(dim=1))
             predicted = torch.round(outputs)  # Round the outputs to 0 or 1
             total += members.size(0)  # Increment the total count by batch size
-            correct += (predicted == members).sum().item()  # Count correct predictions
-
+            for idx, pred_label in enumerate(predicted):
+                if members[idx] == pred_label:
+                    correct += 1  # Count correct predictions
     accuracy = correct / total
-    print(f'Accuracy: {accuracy:.2f}')
+    print(f'Accuracy: {accuracy:.2f} with Correct: {correct} and Total: {total}')
     return accuracy  # Return the ac
-    print(f'Accuracy: {accuracy:.2f}%')
-    # return accuracy
         
