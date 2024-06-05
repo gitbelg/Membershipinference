@@ -179,7 +179,6 @@ def create_shadow_post_train_loader (non_memb_loader:DataLoader, memb_loader:Dat
                     print_first_sample(memb_num_samples, images, labels, logits, input_squeeze=None, one_hot=sigmoids_classes, loss=None, top_sigmoids=sorted_sigmoids)
                     first_sample = False
         # Standardize
-        print(dataset_attack)
         if standardize:
             print ("Standarization")
             dataset_attack = standardize_dset(dataset_attack)
