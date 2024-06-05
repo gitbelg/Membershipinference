@@ -28,7 +28,7 @@ DATA_PATH = 'pickle/tinyimagenet/mobilenetv2/shadow.p'
 # Loading path
 OLD_MODEL_PATH = 'shadow_models/mobilenet_shadow_tinyimage_overtrained.pth'
 # Saving path
-NEW_MODEL_PATH = 'shadow_models/mobilenet_shadow_tinyimage_overtrained.pth'
+NEW_MODEL_PATH = 'shadow_models/mobilenetv2_shadow_tinyimage_overtrained.pth'
 # Parameter
 NUM_EPOCHS = 5
 TRAIN_PERC = 0.5

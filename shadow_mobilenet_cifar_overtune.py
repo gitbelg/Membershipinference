@@ -28,7 +28,7 @@ DATA_PATH = 'pickle/cifar10/mobilenetv2/shadow.p'
 # Loading path
 OLD_MODEL_PATH = 'shadown_models/mobilenet_shadow_cifar_overtrained.pth'
 # Saving path
-NEW_MODEL_PATH = 'shadow_models/mobilenet_shadow_cifar_overtrained.pth'
+NEW_MODEL_PATH = 'shadow_models/mobilenetv2_shadow_cifar_overtrained.pth'
 # Parameter
 NUM_EPOCHS = 3
 TRAIN_PERC = 0.5
