@@ -41,7 +41,7 @@ def train_loop (num_epochs:int, model:nn.Module, dataloader:DataLoader, optimize
         average_loss = running_loss / total_batches
         print(f'Epoch {epoch + 1}/{num_epochs}, Loss: {average_loss:.4f}')
 
-def print_first_sample (sample_number, inputs, labels, outputs, input_squeeze=None, loss=None, top_sigmoids=None):
+def print_first_sample (sample_number, inputs, labels, outputs, input_squeeze=None, one_hot=None, loss=None, top_sigmoids=None):
     print ("------SAMPLE WINDOW---------------------------------------------------------")
     print (f"Number Samples: {sample_number}")
     print (f"Batchsize: {inputs.size(0)}")
@@ -52,7 +52,9 @@ def print_first_sample (sample_number, inputs, labels, outputs, input_squeeze=No
     labels_str = f"{labels}"
     print ("Labels:" + labels_str.replace('\n',"").replace("    ",""))
     outputs_str = f"{outputs}"
-    print ("Outputs (with added Onehot):" + outputs_str.replace('\n',"").replace("  ",""))
+    print ("Outputs:" + outputs_str.replace('\n',"").replace("  ",""))
+    if one_hot is not None:
+        print (f"One hot:{one_hot}")
     if loss is not None:
         print (f"Loss:{loss}")
     if top_sigmoids is not None:
@@ -91,7 +93,7 @@ def train_or_load_and_eval_atck_model(model:nn.Module, train_loader:DataLoader, 
                 outputs = model(inputs.squeeze(dim=1))
                 loss = criterion(outputs, labels)
                 if first_sample:
-                    print_first_sample (sample_n, inputs, labels, outputs, inputs.squeeze(dim=1), loss)
+                    print_first_sample (sample_n, inputs, labels, outputs, inputs.squeeze(dim=1), None, loss)
                     first_sample = False
                 loss.backward()
                 optimizer.step()
@@ -139,7 +141,7 @@ def create_shadow_post_train_loader (non_memb_loader:DataLoader, memb_loader:Dat
                 # Logging
                 if first_sample:
                     print ("NON Members")
-                    print_first_sample(non_memb_num_samples, images, labels, sigmoids_classes, input_squeeze=None, loss=None, top_sigmoids=sorted_sigmoids)
+                    print_first_sample(non_memb_num_samples, images, labels, logits, input_squeeze=None, one_hot=sigmoids_classes, loss=None, top_sigmoids=sorted_sigmoids)
                     first_sample = False
         # MEMBERS
         with torch.no_grad():
@@ -159,7 +161,7 @@ def create_shadow_post_train_loader (non_memb_loader:DataLoader, memb_loader:Dat
                 # Logging
                 if first_sample:
                     print ("Members")
-                    print_first_sample(memb_num_samples, images, labels, sigmoids_classes, input_squeeze=None, loss=None, top_sigmoids=sorted_sigmoids)
+                    print_first_sample(memb_num_samples, images, labels, logits, input_squeeze=None, one_hot=sigmoids_classes, loss=None, top_sigmoids=sorted_sigmoids)
                     first_sample = False
         # Standardize
         if standardize:
@@ -215,7 +217,7 @@ def create_eval_post_loader (target_model:nn.Module, eval_dataset:list, workers_
             class_enc = one_hot(labels, data_class.value)
             sigmoids_classes = torch.concat([sorted_tensor, class_enc], dim=1)
             if first_sample:
-                    print_first_sample(num_samples, images, member, sigmoids_classes, input_squeeze=None, loss=None, top_sigmoids=sorted_tensor)
+                    print_first_sample(num_samples, images, member, logits, input_squeeze=None, one_hot=sigmoids_classes, loss=None, top_sigmoids=sorted_tensor)
                     first_sample = False
             target_dataset_eval.append([sigmoids_classes, member.item()])
     # Standardize
