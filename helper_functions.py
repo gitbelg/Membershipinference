@@ -62,14 +62,25 @@ def print_first_sample (sample_number, inputs, labels, outputs, input_squeeze=No
     print ("---------------------------------------------------------------------------")
 
 def standardize_dset (dataset:list[torch.tensor])->list[torch.tensor]:
-    #onvert all tensors to the same dtype first
-    tensors = [data[0].float() for data in dataset]  # Ensure all tensors are Float type
-    all_data = torch.cat(tensors, dim=0)  # Concatenate all tensors
-    # Calculate mean and std
-    mean = all_data.mean(dim=0)
-    std = all_data.std(dim=0)
-    # Standardize data in the list
-    return [( (data[0] - mean) / std, data[1] ) for data in dataset]
+    for i in range(3):
+            #onvert all tensors to the same dtype first
+        first_column_values = torch.cat([data[0][:, i] for data in dataset], dim=0)
+
+        # Compute mean and std for the first column
+        mean = first_column_values.mean()
+        std = first_column_values.std()
+
+        print("Mean of first column:", mean)
+        print("Std of first column:", std)
+
+        # Function to standardize only the first column
+        def standardize_first_column(tensor, mean, std):
+            tensor[:, 0] = (tensor[:, 0] - mean) / std
+            return tensor
+
+        # Normalize the first column in each tensor in the dataset
+        standardized_dataset = [(standardize_first_column(data[0].clone(), mean, std), data[1]) for data in dataset]
+        return standardized_dataset
 
 ####################################### MAIN FUNCTION
 
@@ -77,7 +88,7 @@ def train_or_load_and_eval_atck_model(model:nn.Module, train_loader:DataLoader, 
     # Check if attack model file already available
     if save_path is not None and isfile (save_path):
         print (f'Attack model state dictionary already available, loading into input model from {save_path}!')
-        model.load_state_dict(torch.load(save_path))
+        model.load_state_dict(torch.load(save_path,map_location=torch.device('cpu'))) #CHANGE IF USING CUDA/CPU
     # Train + test on eval and Save attack model
     else:
         first_sample = True
@@ -143,6 +154,9 @@ def create_shadow_post_train_loader (non_memb_loader:DataLoader, memb_loader:Dat
                     print ("NON Members")
                     print_first_sample(non_memb_num_samples, images, labels, logits, input_squeeze=None, one_hot=sigmoids_classes, loss=None, top_sigmoids=sorted_sigmoids)
                     first_sample = False
+                
+                
+
         # MEMBERS
         with torch.no_grad():
             first_sample = True
@@ -164,6 +178,7 @@ def create_shadow_post_train_loader (non_memb_loader:DataLoader, memb_loader:Dat
                     print_first_sample(memb_num_samples, images, labels, logits, input_squeeze=None, one_hot=sigmoids_classes, loss=None, top_sigmoids=sorted_sigmoids)
                     first_sample = False
         # Standardize
+        print(dataset_attack)
         if standardize:
             print ("Standarization")
             dataset_attack = standardize_dset(dataset_attack)
@@ -229,7 +244,7 @@ def create_eval_post_loader (target_model:nn.Module, eval_dataset:list, workers_
     target_eval_dl = torch.utils.data.DataLoader(target_dataset_eval, batch_size=64 , shuffle=False, num_workers=workers_n)
     return target_eval_dl
 
-def evaluate_attack_model(model:nn.Module, post_memb_loader:DataLoader, device):
+def evaluate_attack_model(model: nn.Module, post_memb_loader: DataLoader, device):
     model.eval()  # Set the model to evaluation mode
     correct = 0
     total = 0
@@ -237,13 +252,16 @@ def evaluate_attack_model(model:nn.Module, post_memb_loader:DataLoader, device):
     with torch.no_grad():  # Disable gradient computation
         for sorted_logits, members in post_memb_loader:
             sorted_logits = sorted_logits.to(device).float()
+            members = members.to(device).float()
 
             outputs = model(sorted_logits.squeeze(dim=1))
             predicted = torch.round(outputs)  # Round the outputs to 0 or 1
             total += members.size(0)  # Increment the total count by batch size
-            correct += (predicted == members.to(device)).sum().item()  # Count correct predictions
+            correct += (predicted == members).sum().item()  # Count correct predictions
 
     accuracy = correct / total
+    print(f'Accuracy: {accuracy:.2f}')
+    return accuracy  # Return the ac
     print(f'Accuracy: {accuracy:.2f}%')
     # return accuracy
         
