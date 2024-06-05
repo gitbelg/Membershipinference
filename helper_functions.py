@@ -6,6 +6,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch import optim, nn
 from torch import device as d
+from torch.nn.functional import one_hot
 from enum import Enum
 
 class DatasetClassN (Enum):
@@ -51,7 +52,7 @@ def print_first_sample (sample_number, inputs, labels, outputs, input_squeeze=No
     labels_str = f"{labels}"
     print ("Labels:" + labels_str.replace('\n',"").replace("    ",""))
     outputs_str = f"{outputs}"
-    print ("Outputs:" + outputs_str.replace('\n',"").replace("  ",""))
+    print ("Outputs (with added Onehot):" + outputs_str.replace('\n',"").replace("  ",""))
     if loss is not None:
         print (f"Loss:{loss}")
     if top_sigmoids is not None:
@@ -86,7 +87,6 @@ def train_or_load_and_eval_atck_model(model:nn.Module, train_loader:DataLoader, 
             for inputs, labels in train_loader:
                 inputs = inputs.float().to(device)  # Ensures input tensors are floats
                 labels = labels.float().to(device).view(-1, 1)  # Ensures labels are floats and reshaped correctly
-                
                 optimizer.zero_grad()
                 outputs = model(inputs.squeeze(dim=1))
                 loss = criterion(outputs, labels)
@@ -112,7 +112,7 @@ def train_or_load_and_eval_atck_model(model:nn.Module, train_loader:DataLoader, 
                 
                 
 # Use this function to create a training dataset for the attack model, based on shadow training/testing datasets
-def create_shadow_post_train_loader (non_memb_loader:DataLoader, memb_loader:DataLoader, shadow_model:nn.Module, batch_size:int, multi_n:int, device, save_path:str=None, standardize:bool=False)->DataLoader:
+def create_shadow_post_train_loader (non_memb_loader:DataLoader, memb_loader:DataLoader, shadow_model:nn.Module, batch_size:int, multi_n:int, data_class, device, save_path:str=None, standardize:bool=False)->DataLoader:
     if save_path is not None and isfile(save_path):
         print (f"Attack dataset was already established previosly, loading dataset from \"{save_path}\".")
         # Load already established dset
@@ -127,17 +127,19 @@ def create_shadow_post_train_loader (non_memb_loader:DataLoader, memb_loader:Dat
             non_memb_num_samples = len(non_memb_loader.sampler)
             for images, labels in non_memb_loader: #need only one
                     # Move images and labels to the appropriate device
-                images, labels = images.to(device), labels.to(device)
-                    # Forward pass
+                images = images.to(device)
+                # Forward pass
                 logits = shadow_model(images)
                 #take the 3 biggest logist
                 top_values = torch.topk(logits, k=3).values
                 sorted_sigmoids, _ = torch.sort(top_values.to("cpu"), dim=1, descending=True)
-                dataset_attack.append([sorted_sigmoids,0])
+                class_enc = one_hot(labels, data_class.value)
+                sigmoids_classes = torch.concat([sorted_sigmoids, class_enc], dim=1)
+                dataset_attack.append([sigmoids_classes,0])
                 # Logging
                 if first_sample:
                     print ("NON Members")
-                    print_first_sample(non_memb_num_samples, images, labels, logits, input_squeeze=None, loss=None, top_sigmoids=sorted_sigmoids)
+                    print_first_sample(non_memb_num_samples, images, labels, sigmoids_classes, input_squeeze=None, loss=None, top_sigmoids=sorted_sigmoids)
                     first_sample = False
         # MEMBERS
         with torch.no_grad():
@@ -145,21 +147,26 @@ def create_shadow_post_train_loader (non_memb_loader:DataLoader, memb_loader:Dat
             memb_num_samples = len(non_memb_loader.sampler)
             for images, labels in memb_loader: #need only one
                     # Move images and labels to the appropriate device
-                images, labels = images.to(device), labels.to(device)
-                    # Forward pass
+                images = images.to(device)
+                # Forward pass
                 logits = shadow_model(images)
                 #take the 3 biggest logist
                 top_values = torch.topk(logits, k=3).values
                 sorted_sigmoids, _ = torch.sort(top_values.to("cpu"), dim=1, descending=True)
-                dataset_attack.append([sorted_sigmoids,1])
+                class_enc = one_hot(labels, data_class.value)
+                sigmoids_classes = torch.concat([sorted_sigmoids, class_enc], dim=1)
+                dataset_attack.append([sigmoids_classes,1])
                 # Logging
                 if first_sample:
                     print ("Members")
-                    print_first_sample(memb_num_samples, images, labels, logits, input_squeeze=None, loss=None, top_sigmoids=sorted_sigmoids)
+                    print_first_sample(memb_num_samples, images, labels, sigmoids_classes, input_squeeze=None, loss=None, top_sigmoids=sorted_sigmoids)
                     first_sample = False
         # Standardize
         if standardize:
+            print ("Standarization")
             dataset_attack = standardize_dset(dataset_attack)
+        else:
+            print ("No Standarization")
         if save_path is not None:
             # Save dset
             with open (save_path, "wb") as att_dset_f:
@@ -174,43 +181,49 @@ def create_shadow_post_train_loader (non_memb_loader:DataLoader, memb_loader:Dat
 
 
 # Use this function to create a dataset of the target model posteriors
-def create_eval_post_loader (target_model:nn.Module, eval_dataset:list, workers_n:int, device="cpu", test_dataset=False, standardize:bool=False)->DataLoader:
+def create_eval_post_loader (target_model:nn.Module, eval_dataset:list, workers_n:int, data_class, device="cpu", test_dataset=False, standardize:bool=False)->DataLoader:
     target_model.eval()
     target_dataset_eval = []
     eval_dataloader = DataLoader(eval_dataset, batch_size=1 , shuffle=False, num_workers=1)
     with torch.no_grad():
         first_sample = True
         num_samples = len(eval_dataloader.sampler)
-        # FOR TEST DATASET ONLY
-        if test_dataset:
-            for images, _ in eval_dataloader:
-                # Move images and labels to the appropriate device
-                images = images.to(device)
-                # Forward pass
-                logits = target_model(images)
-                #take the 3 biggest logist
-                top_values = torch.topk(logits, k=3).values #order poseri
-                sorted_tensor, _ = torch.sort(top_values.to("cpu"), dim=1,descending=True)
-                if first_sample:
-                        print_first_sample(num_samples, images, None, logits, input_squeeze=None, loss=None, top_sigmoids=sorted_tensor)
-                        first_sample = False
-                target_dataset_eval.append(sorted_tensor)
-        else:
-            for images,_, member in eval_dataloader: #need only one
-                # Move images and labels to the appropriate device
-                images = images.to(device)
-                # Forward pass
-                logits = target_model(images)
-                #take the 3 biggest logist
-                top_values = torch.topk(logits, k=3).values #order poseri
-                sorted_tensor, _ = torch.sort(top_values.to("cpu"), dim=1,descending=True)
-                if first_sample:
-                        print_first_sample(num_samples, images, member, logits, input_squeeze=None, loss=None, top_sigmoids=sorted_tensor)
-                        first_sample = False
-                target_dataset_eval.append([sorted_tensor, member.item()])
+        # # FOR TEST DATASET ONLY
+        # if test_dataset:
+        #     for images, _ in eval_dataloader:
+        #         # Move images and labels to the appropriate device
+        #         images = images.to(device)
+        #         # Forward pass
+        #         logits = target_model(images)
+        #         #take the 3 biggest logist
+        #         top_values = torch.topk(logits, k=3).values #order poseri
+        #         sorted_tensor, _ = torch.sort(top_values.to("cpu"), dim=1,descending=True)
+        #         if first_sample:
+        #                 print_first_sample(num_samples, images, None, logits, input_squeeze=None, loss=None, top_sigmoids=sorted_tensor)
+        #                 first_sample = False
+        #         target_dataset_eval.append(sorted_tensor)
+        # else:
+        for images, labels, member in eval_dataloader: #need only one
+            # Move images and labels to the appropriate device
+            images = images.to(device)
+            # Forward pass
+            logits = target_model(images)
+            #take the 3 biggest logist
+            top_values = torch.topk(logits, k=3).values #order poseri
+            sorted_tensor, _ = torch.sort(top_values.to("cpu"), dim=1,descending=True)
+            # Encoding
+            class_enc = one_hot(labels, data_class.value)
+            sigmoids_classes = torch.concat([sorted_tensor, class_enc], dim=1)
+            if first_sample:
+                    print_first_sample(num_samples, images, member, sigmoids_classes, input_squeeze=None, loss=None, top_sigmoids=sorted_tensor)
+                    first_sample = False
+            target_dataset_eval.append([sigmoids_classes, member.item()])
     # Standardize
     if standardize:
+        print ("Standarization")
         target_dataset_eval = standardize_dset(target_dataset_eval)
+    else:
+        print ("No Standarization")
     target_eval_dl = torch.utils.data.DataLoader(target_dataset_eval, batch_size=64 , shuffle=False, num_workers=workers_n)
     return target_eval_dl
 
@@ -229,6 +242,6 @@ def evaluate_attack_model(model:nn.Module, post_memb_loader:DataLoader, device):
             correct += (predicted == members.to(device)).sum().item()  # Count correct predictions
 
     accuracy = correct / total
-    print(f'Accuracy: {accuracy:.2f}')
+    print(f'Accuracy: {accuracy:.2f}%')
     # return accuracy
         
